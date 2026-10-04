@@ -1,3 +1,5 @@
+import { openSupport } from "./support";
+import { usePageNavigation } from "./navigation";
 import { useEffect, useRef, useState } from "react";
 import type { BrowserQRCodeReader, IScannerControls } from "@zxing/browser";
 import { AdminPages, LoginPage, OwnerOnboardingVilla, OwnerPackageAuth, OwnerPages, OwnerRegistration, OwnerSelectVilla, PackageConfirmation, PackageRequestPending, PublicInfoPage, PublicReportPage, PublicReportSuccess, type Page, type UserReport, UserPages } from "./prototype";
@@ -149,7 +151,7 @@ function ShowcaseCard({ villa, featured = false, onClick }: { villa: typeof vill
   </article>;
 }
 
-function VillaShowcase({ go }: { go: (p: Page) => void }) {
+function VillaShowcase({ go }: { go: (p: Page, item?: string) => void }) {
   const [active, setActive] = useState(0);
   const trackRef = useRef<HTMLDivElement>(null);
   const items = villas.slice(0, 4);
@@ -167,12 +169,12 @@ function VillaShowcase({ go }: { go: (p: Page) => void }) {
     setActive(nearest);
   };
   return <div className="showcase-carousel">
-    <div className="showcase-track" ref={trackRef} onScroll={updateActive}>{items.map((villa, index) => <ShowcaseCard key={villa.name} villa={villa} featured={index === 0} onClick={() => go("detail")} />)}</div>
+    <div className="showcase-track" ref={trackRef} onScroll={updateActive}>{items.map((villa, index) => <ShowcaseCard key={villa.name} villa={villa} featured={index === 0} onClick={() => go("detail", villa.name)} />)}</div>
     <div className="carousel-controls"><button aria-label="Villa ก่อนหน้า" onClick={() => scrollToSlide(active - 1)} disabled={active === 0}>←</button><div className="carousel-dots">{items.map((villa, index) => <button key={villa.name} aria-label={`ไป Villa ภาพที่ ${index + 1}`} className={active === index ? "active" : ""} onClick={() => scrollToSlide(index)} />)}</div><span>{active + 1}/{items.length}</span><button aria-label="Villa ถัดไป" onClick={() => scrollToSlide(active + 1)} disabled={active === items.length - 1}>→</button></div>
   </div>;
 }
 
-function Home({ go, onSearch }: { go: (p: Page) => void; onSearch: (query: string, province: string) => void }) {
+function Home({ go, onSearch }: { go: (p: Page, item?: string) => void; onSearch: (query: string, province: string) => void }) {
   const [heroSlide, setHeroSlide] = useState(0);
   const [heroAutoPlay, setHeroAutoPlay] = useState(true);
   const heroTouchStart = useRef(0);
@@ -292,7 +294,7 @@ function Home({ go, onSearch }: { go: (p: Page) => void; onSearch: (query: strin
   </>;
 }
 
-function Directory({ go, initialQuery = "", initialProvince = "" }: { go: (p: Page) => void; initialQuery?: string; initialProvince?: string }) {
+function Directory({ go, initialQuery = "", initialProvince = "" }: { go: (p: Page, item?: string) => void; initialQuery?: string; initialProvince?: string }) {
   const [query, setQuery] = useState(initialQuery);
   const [province, setProvince] = useState(initialProvince);
   const [status, setStatus] = useState("");
@@ -315,7 +317,7 @@ function Directory({ go, initialQuery = "", initialProvince = "" }: { go: (p: Pa
     </div>
     <section className="container directory-results">
       <div className="results-head"><div><h2>ตัวอย่างพูลวิลล่า</h2><p>แสดง {filtered.length} รายการจากข้อมูลสาธิต</p></div><select aria-label="เรียงลำดับ" value={sort} onChange={event => setSort(event.target.value)}><option value="ล่าสุด">อัปเดตล่าสุด</option><option>A–Z</option></select></div>
-      {filtered.length ? <div className="villa-grid directory-grid">{filtered.map(v => <VillaCard key={v.name} villa={v} onClick={() => go("detail")} />)}</div> : <div className="empty-results"><strong>ไม่พบ Villa ที่ตรงกับการค้นหา</strong><p>ลองเปลี่ยนคำค้นหาหรือจังหวัด</p><button className="outline-button" onClick={() => { setQuery(""); setProvince(""); setStatus(""); setGuests(""); }}>ล้างตัวกรอง</button></div>}
+      {filtered.length ? <div className="villa-grid directory-grid">{filtered.map(v => <VillaCard key={v.name} villa={v} onClick={() => go("detail", v.name)} />)}</div> : <div className="empty-results"><strong>ไม่พบ Villa ที่ตรงกับการค้นหา</strong><p>ลองเปลี่ยนคำค้นหาหรือจังหวัด</p><button className="outline-button" onClick={() => { setQuery(""); setProvince(""); setStatus(""); setGuests(""); }}>ล้างตัวกรอง</button></div>}
     </section>
   </main>;
 }
@@ -376,7 +378,8 @@ function VillaGallery() {
   </>;
 }
 
-function Detail({ go }: { go: (p: Page) => void }) {
+function Detail({ go, villa }: { go: (p: Page, item?: string) => void; villa: typeof villas[number] }) {
+  if (villa.name !== villas[0].name) return <main className="page-bg"><div className="container page-hero"><button className="outline-button" onClick={() => go("directory")}>← กลับไปค้นหา Villa</button><h1>{villa.name}</h1><p>{villa.province} · {villa.guests}</p><img src={villa.image} alt={villa.name} style={{ width: "100%", maxHeight: 480, objectFit: "cover", borderRadius: 24 }} /><h2>{villa.status}</h2><p>อัปเดต {villa.updated} · ข้อมูลที่พักสาธิต</p><button className="outline-button" onClick={() => go("villa-report")}>แจ้งปัญหา</button></div></main>;
   return <main className="detail-page">
     <div className="container breadcrumbs"><button onClick={() => go("home")}>หน้าหลัก</button><span>/</span><button onClick={() => go("directory")}>ค้นหาวิลล่า</button><span>/</span><strong>Sea Sky Pool Villa</strong></div>
     <VillaGallery />
@@ -408,7 +411,7 @@ function Detail({ go }: { go: (p: Page) => void }) {
   </main>;
 }
 
-function ScanQr({ go, onVerified }: { go: (p: Page) => void; onVerified: (reference: string) => void }) {
+function ScanQr({ go, onVerified }: { go: (p: Page, item?: string) => void; onVerified: (reference: string) => void }) {
   const [scanState, setScanState] = useState<"idle" | "requesting" | "scanning" | "loading" | "success" | "permission-error" | "not-found" | "error">("idle");
   const [manualEntry, setManualEntry] = useState(false);
   const [manualCode, setManualCode] = useState("");
@@ -558,7 +561,7 @@ function ScanQr({ go, onVerified }: { go: (p: Page) => void; onVerified: (refere
   </main>;
 }
 
-function Verify({ go, reference }: { go: (p: Page) => void; reference: string }) {
+function Verify({ go, reference }: { go: (p: Page, item?: string) => void; reference: string }) {
   const [status, setStatus] = useState<"verified" | "pending" | "expired">("verified");
   const meta = status === "verified"
     ? { label: "VillaCheck VERIFIED", title: "Verified Property", date: "18 กันยายน 2568" }
@@ -602,7 +605,7 @@ const plans = [
   { name: "Trust Premium", price: "฿9,900", unit: "/ เดือน", desc: "สำหรับเครือที่พักมืออาชีพ", features: ["รองรับสูงสุด 10 แห่ง", "Premium Verification", "Portfolio Dashboard", "Dedicated Account Manager", "Custom Trust Report"], cta: "เลือกแพ็กเกจ" },
 ];
 
-function Pricing({ onSelect }: { onSelect: (name: string) => void }) {
+function Pricing({ onSelect, go }: { onSelect: (name: string) => void; go: (page: Page) => void }) {
   return <main className="page-bg pricing-page">
     <div className="page-hero container"><span className="kicker">PRICING FOR OWNERS</span><h1>แพ็กเกจที่เติบโตไปพร้อมธุรกิจคุณ</h1><p>ราคาต่อเดือนชัดเจน ไม่มี Payment System ใน Prototype<br />Basic Trust QR ใช้งานฟรี 90 วัน</p></div>
     <div className="container plan-grid">
@@ -618,7 +621,7 @@ function Pricing({ onSelect }: { onSelect: (name: string) => void }) {
   </main>;
 }
 
-function Footer({ go }: { go: (p: Page) => void }) {
+function Footer({ go }: { go: (p: Page, item?: string) => void }) {
   return <footer className="public-footer">
     <div className="container footer-grid">
       <div className="footer-brand">
@@ -629,14 +632,14 @@ function Footer({ go }: { go: (p: Page) => void }) {
       <div><strong>เกี่ยวกับ VillaCheck</strong><button onClick={() => go("about")}>เกี่ยวกับเรา</button><button onClick={() => go("verification-standard")}>มาตรฐานการตรวจสอบ</button><button onClick={() => go("articles")}>บทความและข่าวสาร</button><button onClick={() => go("login")}>เข้าสู่ระบบ</button></div>
       <div><strong>สำหรับผู้ใช้งาน</strong><button onClick={() => go("directory")}>ค้นหาที่พัก</button><button onClick={() => go("scan")}>ตรวจสอบ QR</button><button onClick={() => go("user-precheck")}>ตรวจสอบก่อนโอน</button><button onClick={() => go("villa-report")}>แจ้งปัญหา</button></div>
       <div><strong>สำหรับเจ้าของที่พัก</strong><button onClick={() => go("pricing")}>แพ็กเกจ</button><button onClick={() => go("owner-guide")}>สำหรับเจ้าของที่พัก</button><button onClick={() => go("owner-auth")}>ลงทะเบียนที่พัก</button><button onClick={() => go("login")}>เข้าสู่ระบบ</button></div>
-      <div className="footer-support"><strong>ช่วยเหลือและติดต่อ</strong><button onClick={() => go("help")}>Help / Support</button><button onClick={() => go("contact")}>Contact</button><button onClick={() => { window.location.href = "mailto:support@villacheck.test"; }}><Icon name="mail" size={14} />support@villacheck.test</button><button onClick={() => { window.location.href = "tel:+6620000000"; }}><Icon name="phone" size={14} />02-000-0000</button><small>จันทร์–ศุกร์ 09:00–18:00 น.</small></div>
+      <div className="footer-support"><strong>ช่วยเหลือและติดต่อ</strong><button onClick={() => go("help")}>Help / Support</button><button onClick={() => go("contact")}>Contact</button><button onClick={() => openSupport("email")}><Icon name="mail" size={14} />อีเมลทีมงาน</button><button onClick={() => openSupport("phone")}><Icon name="phone" size={14} />โทรทีมงาน</button><small>จันทร์–ศุกร์ 09:00–18:00 น.</small></div>
     </div>
     <div className="container footer-bottom"><span>© 2025 VillaCheck. สงวนลิขสิทธิ์</span><div><button onClick={() => go("privacy")}>นโยบายความเป็นส่วนตัว</button><button onClick={() => go("terms")}>ข้อกำหนดและเงื่อนไข</button></div><span>Trust before transfer.</span></div>
   </footer>;
 }
 
 export default function App() {
-  const [page, setPage] = useState<Page>("home");
+  const [page, navigate, selectedItem] = usePageNavigation<Page>();
   const [selectedPackage, setSelectedPackage] = useState("Trust Pro");
   const [directorySearch, setDirectorySearch] = useState({ query: "", province: "" });
   const [adminVillaStatus, setAdminVillaStatus] = useState<"Pending" | "Verified" | "Rejected" | "Suspended" | "Expired">("Pending");
@@ -650,7 +653,7 @@ export default function App() {
   const [userReports, setUserReports] = useState<UserReport[]>([
     { reference: "RPT-1038", villa: "Sea Sky Pool Villa", type: "ช่องทางติดต่อไม่ตรง", guest: false },
   ]);
-  const go = (next: Page) => { setPage(next); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const go = (next: Page, item?: string) => { if (next === "login") { setOwnerLoggedIn(false); setUserLoggedIn(false); } navigate(next, item); };
   const search = (query: string, province: string) => {
     setDirectorySearch({ query, province });
     go("directory");
@@ -658,7 +661,7 @@ export default function App() {
   const selectPackage = (name: string) => {
     setSelectedPackage(name);
     setSelectedVilla("");
-    go(ownerLoggedIn ? "package-confirmation" : "owner-auth");
+    go(ownerLoggedIn ? "owner-select-villa" : "owner-auth");
   };
   const showVerificationResult = (reference: string) => {
     setQrReference(reference);
@@ -678,11 +681,11 @@ export default function App() {
   const content =
     page === "home" ? <Home go={go} onSearch={search} /> :
     page === "directory" ? <Directory go={go} initialQuery={directorySearch.query} initialProvince={directorySearch.province} /> :
-    page === "detail" ? <Detail go={go} /> :
+    page === "detail" ? <Detail go={go} villa={villas.find(v => v.name === selectedItem) || villas[0]} /> :
     page === "scan" ? <ScanQr go={go} onVerified={showVerificationResult} /> :
     page === "verify" ? <Verify go={go} reference={qrReference} /> :
-    page === "pricing" ? <Pricing onSelect={selectPackage} /> :
-    isPublicInfoPage ? <PublicInfoPage page={page} go={go} /> :
+    page === "pricing" ? <Pricing onSelect={selectPackage} go={go} /> :
+    isPublicInfoPage ? <PublicInfoPage page={page} go={go} selectedArticle={selectedItem} /> :
     page === "villa-report" ? <PublicReportPage onSubmit={submitReport} /> :
     page === "villa-report-success" ? <PublicReportSuccess go={go} reference={reportReference} linkedToUser={userLoggedIn} /> :
     page === "login" ? <LoginPage go={go} onAuthenticated={role => { if (role === "Owner") setOwnerLoggedIn(true); if (role === "User") setUserLoggedIn(true); }} /> :
@@ -694,7 +697,7 @@ export default function App() {
     page === "package-request-pending" ? <PackageRequestPending go={go} packageName={selectedPackage} /> :
     isOwnerPage ? <OwnerPages page={page} go={go} packageName={selectedPackage} packageStatus={packageStatus} setPackageName={setSelectedPackage} onPackageChange={() => setPackageStatus("รอดำเนินการ / Pending")} /> :
     isAdminPage ? <AdminPages page={page} go={go} villaStatus={adminVillaStatus} setVillaStatus={setAdminVillaStatus} /> :
-    <UserPages page={page} go={go} reports={userReports} />;
+    <UserPages page={page} go={go} reports={userReports} selectedReference={selectedItem} />;
   const isStandalone = page === "scan" || page === "verify" || page === "login" || page === "owner-auth" || page === "owner-registration" || page === "owner-information" || page === "owner-onboarding-villa" || page === "owner-select-villa" || page === "package-confirmation" || page === "package-request-pending" || isOwnerPage || isAdminPage || isUserPage;
   const showPublicFooter = ["home", "directory", "detail", "pricing", "scan", "verify", "villa-report", "villa-report-success"].includes(page) || isPublicInfoPage;
   return <div className="app">{!isStandalone && <Header page={page} go={go} />}{content}{showPublicFooter && <Footer go={go} />}</div>;
